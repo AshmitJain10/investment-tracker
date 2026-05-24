@@ -2,6 +2,25 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Investment Tracker E2E Flows", () => {
   
+  test.beforeEach(async ({ page }) => {
+    // Intercept NextAuth session checking to simulate an authenticated active user
+    await page.route("**/api/auth/session", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          user: {
+            name: "Mock Test User",
+            email: "mocktestuser@gmail.com",
+            image: "https://lh3.googleusercontent.com/a/mock-avatar-hash",
+            id: "mock-user-id",
+          },
+          expires: new Date(Date.now() + 2 * 3600 * 1000).toISOString(),
+        }),
+      });
+    });
+  });
+
   test("should load the dashboard and verify initial structural widgets", async ({ page }) => {
     // Navigate to local dashboard
     await page.goto("/");

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../../auth/[...nextauth]/route";
 import { getHoldings } from "@/lib/storage";
 import { SipHealthDetails } from "@/models/types";
 
@@ -7,7 +9,13 @@ import { SipHealthDetails } from "@/models/types";
  */
 export async function GET() {
   try {
-    const holdings = await getHoldings();
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = (session.user as any).id || session.user.email || "default";
+
+    const holdings = await getHoldings(userId);
 
     if (holdings.length === 0) {
       return NextResponse.json({ success: true, data: [] });

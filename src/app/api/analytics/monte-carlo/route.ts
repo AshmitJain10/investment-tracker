@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../../auth/[...nextauth]/route";
 import { getHoldings } from "@/lib/storage";
 import { fetchCurrentPrices } from "@/lib/market";
 import yahooFinance from "@/lib/yahooFinance";
@@ -19,12 +21,18 @@ function randomNormal(): number {
  */
 export async function GET(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = (session.user as any).id || session.user.email || "default";
+
     const { searchParams } = new URL(req.url);
     const targetAmount = Number(searchParams.get("targetAmount") || 1000000); // 10L default
     const years = Number(searchParams.get("years") || 5);                    // 5 years default
     const monthlyContribution = Number(searchParams.get("monthlyContribution") || 10000); // 10k default
 
-    const holdings = await getHoldings();
+    const holdings = await getHoldings(userId);
     
     // Determine starting S0 portfolio value in INR
     let s0 = 100000; // default seed if empty
@@ -201,9 +209,9 @@ export async function GET(req: NextRequest) {
       chartData.push({
         month,
         year: `Yr ${yVal}`,
-        p10: Math.round(stepValues[p10Idx]), // 10th percentile (Pessimistic: 90% chance to exceed)
-        p50: Math.round(stepValues[p50Idx]), // 50th percentile (Median: 50% chance to exceed)
-        p90: Math.round(stepValues[p90Idx]), // 90th percentile (Optimistic: 10% chance to exceed)
+        p10: Math.round(stepValues[p10Idx]), // 10th percentile
+        p50: Math.round(stepValues[p50Idx]), // 50th percentile
+        p90: Math.round(stepValues[p90Idx]), // 90th percentile
       });
     }
 

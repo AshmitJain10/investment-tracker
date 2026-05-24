@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../../auth/[...nextauth]/route";
 import { getHoldings, getTargetAllocation } from "@/lib/storage";
 import { fetchCurrentPrices } from "@/lib/market";
 
@@ -7,8 +9,14 @@ import { fetchCurrentPrices } from "@/lib/market";
  */
 export async function POST() {
   try {
-    const holdings = await getHoldings();
-    const targets = await getTargetAllocation();
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = (session.user as any).id || session.user.email || "default";
+
+    const holdings = await getHoldings(userId);
+    const targets = await getTargetAllocation(userId);
 
     if (holdings.length === 0) {
       return NextResponse.json({

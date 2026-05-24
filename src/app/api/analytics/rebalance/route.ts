@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../../auth/[...nextauth]/route";
 import { getHoldings, getTargetAllocation, saveTargetAllocation } from "@/lib/storage";
 import { fetchCurrentPrices } from "@/lib/market";
 import { RebalanceRecommendation } from "@/models/types";
@@ -8,8 +10,14 @@ import { RebalanceRecommendation } from "@/models/types";
  */
 export async function GET() {
   try {
-    const holdings = await getHoldings();
-    const targets = await getTargetAllocation();
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = (session.user as any).id || session.user.email || "default";
+
+    const holdings = await getHoldings(userId);
+    const targets = await getTargetAllocation(userId);
 
     if (holdings.length === 0) {
       return NextResponse.json({
@@ -110,6 +118,12 @@ export async function GET() {
  */
 export async function POST(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = (session.user as any).id || session.user.email || "default";
+
     const body = await req.json();
     const { stock, mutual_fund, gold } = body;
 
@@ -122,7 +136,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Allocations must sum up to exactly 100%" }, { status: 400 });
     }
 
-    await saveTargetAllocation(Number(stock), Number(mutual_fund), Number(gold));
+    await saveTargetAllocation(userId, Number(stock), Number(mutual_fund), Number(gold));
     return NextResponse.json({ success: true, message: "Target allocations updated successfully" });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

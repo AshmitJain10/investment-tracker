@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../auth/[...nextauth]/route";
 import { getHoldings, addHolding, updateHolding, deleteHolding } from "@/lib/storage";
 import { fetchHistoricalExchangeRate } from "@/lib/math/forex";
 import { Holding } from "@/models/types";
@@ -9,7 +11,13 @@ import { Holding } from "@/models/types";
  */
 export async function GET() {
   try {
-    const holdings = await getHoldings();
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = (session.user as any).id || session.user.email || "default";
+
+    const holdings = await getHoldings(userId);
     return NextResponse.json({ success: true, data: holdings });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -21,6 +29,12 @@ export async function GET() {
  */
 export async function POST(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = (session.user as any).id || session.user.email || "default";
+
     const body = await req.json();
     const { symbol, name, type, currency, quantity, buyPrice, buyDate, sector } = body;
 
@@ -60,7 +74,7 @@ export async function POST(req: NextRequest) {
       sector: sector || "General",
     };
 
-    await addHolding(newHolding);
+    await addHolding(userId, newHolding);
     return NextResponse.json({ success: true, data: newHolding }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -72,6 +86,12 @@ export async function POST(req: NextRequest) {
  */
 export async function PUT(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = (session.user as any).id || session.user.email || "default";
+
     const body = await req.json();
     const { id, ...updates } = body;
 
@@ -84,7 +104,7 @@ export async function PUT(req: NextRequest) {
       updates.exchangeRate = await fetchHistoricalExchangeRate(updates.buyDate);
     }
 
-    const success = await updateHolding(id, updates);
+    const success = await updateHolding(userId, id, updates);
     if (!success) {
       return NextResponse.json({ success: false, error: "Holding not found or no changes made" }, { status: 404 });
     }
@@ -100,6 +120,12 @@ export async function PUT(req: NextRequest) {
  */
 export async function DELETE(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = (session.user as any).id || session.user.email || "default";
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
@@ -107,7 +133,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Missing holding ID" }, { status: 400 });
     }
 
-    const success = await deleteHolding(id);
+    const success = await deleteHolding(userId, id);
     if (!success) {
       return NextResponse.json({ success: false, error: "Holding not found" }, { status: 404 });
     }

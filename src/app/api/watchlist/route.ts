@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../auth/[...nextauth]/route";
 import {
   getWatchlist,
   addWatchlistItem,
@@ -16,15 +18,21 @@ import { WatchlistItem, PriceAlert } from "@/models/types";
  */
 export async function GET(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = (session.user as any).id || session.user.email || "default";
+
     const { searchParams } = new URL(req.url);
     const action = searchParams.get("action");
 
     if (action === "alerts") {
-      const alerts = await getPriceAlerts();
+      const alerts = await getPriceAlerts(userId);
       return NextResponse.json({ success: true, data: alerts });
     }
 
-    const list = await getWatchlist();
+    const list = await getWatchlist(userId);
     return NextResponse.json({ success: true, data: list });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -36,6 +44,12 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = (session.user as any).id || session.user.email || "default";
+
     const { searchParams } = new URL(req.url);
     const action = searchParams.get("action");
     const body = await req.json();
@@ -55,7 +69,7 @@ export async function POST(req: NextRequest) {
         createdAt: new Date().toISOString(),
       };
 
-      await addPriceAlert(newAlert);
+      await addPriceAlert(userId, newAlert);
       return NextResponse.json({ success: true, data: newAlert }, { status: 201 });
     }
 
@@ -78,7 +92,7 @@ export async function POST(req: NextRequest) {
       type,
     };
 
-    await addWatchlistItem(newItem);
+    await addWatchlistItem(userId, newItem);
     return NextResponse.json({ success: true, data: newItem }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -90,6 +104,12 @@ export async function POST(req: NextRequest) {
  */
 export async function PUT(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = (session.user as any).id || session.user.email || "default";
+
     const { searchParams } = new URL(req.url);
     const action = searchParams.get("action");
     const body = await req.json();
@@ -100,7 +120,7 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ success: false, error: "Missing parameters" }, { status: 400 });
       }
 
-      const success = await updatePriceAlert(id, { active });
+      const success = await updatePriceAlert(userId, id, { active });
       if (!success) {
         return NextResponse.json({ success: false, error: "Alert not found" }, { status: 404 });
       }
@@ -119,6 +139,12 @@ export async function PUT(req: NextRequest) {
  */
 export async function DELETE(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = (session.user as any).id || session.user.email || "default";
+
     const { searchParams } = new URL(req.url);
     const action = searchParams.get("action");
     const id = searchParams.get("id");
@@ -128,14 +154,14 @@ export async function DELETE(req: NextRequest) {
     }
 
     if (action === "delete_alert") {
-      const success = await deletePriceAlert(id);
+      const success = await deletePriceAlert(userId, id);
       if (!success) {
         return NextResponse.json({ success: false, error: "Alert not found" }, { status: 404 });
       }
       return NextResponse.json({ success: true, message: "Price alert deleted" });
     }
 
-    const success = await deleteWatchlistItem(id);
+    const success = await deleteWatchlistItem(userId, id);
     if (!success) {
       return NextResponse.json({ success: false, error: "Watchlist item not found" }, { status: 404 });
     }

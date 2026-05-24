@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../../auth/[...nextauth]/route";
 import { getHoldings } from "@/lib/storage";
 import { Holding } from "@/models/types";
 import yahooFinance from "@/lib/yahooFinance";
@@ -19,7 +21,13 @@ interface NewsArticle {
  */
 export async function GET() {
   try {
-    const holdings = await getHoldings();
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = (session.user as any).id || session.user.email || "default";
+
+    const holdings = await getHoldings(userId);
     
     if (holdings.length === 0) {
       return NextResponse.json({
@@ -67,7 +75,7 @@ export async function GET() {
       console.warn("Live Yahoo news retrieval failed. Using synthetic portfolio updates.");
     }
 
-    // If we couldn't get any live articles, or to supplement SGB/Gold, generate highly targeted, realistic headlines!
+    // If we couldn't get any live articles, generate targeted headlines
     const liveArticles = Array.from(articlesMap.values());
     const syntheticArticles = generateSyntheticNews(holdings);
 

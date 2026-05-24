@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../../auth/[...nextauth]/route";
 import { getHoldings } from "@/lib/storage";
 import { fetchCurrentPrices } from "@/lib/market";
 import { TaxHoldingDetail, TaxSummary } from "@/models/types";
@@ -8,7 +10,13 @@ import { TaxHoldingDetail, TaxSummary } from "@/models/types";
  */
 export async function GET() {
   try {
-    const holdings = await getHoldings();
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = (session.user as any).id || session.user.email || "default";
+
+    const holdings = await getHoldings(userId);
     
     if (holdings.length === 0) {
       return NextResponse.json({
@@ -76,8 +84,6 @@ export async function GET() {
         }
       } else if (h.type === "gold" || h.type === "sgb") {
         // Gold and SGB alternate assets
-        // Under FY 24-25, Gold spot / Digital gold gains are taxed at slab rates (represented here as standard 30% marginal rate)
-        // For SGB: exempt at maturity (8 years). If sold before: STCG if <= 3 years (1095 days) taxed at slab (30%), LTCG if > 3 years (20%)
         if (h.type === "sgb") {
           if (holdingDays > 2922) {
             // > 8 years: Fully tax-exempt
@@ -144,14 +150,12 @@ export async function GET() {
       details.push(detail);
     }
 
-    // Adjust longTermGains estimated tax with the ₹1.25 Lakh overall exemption limit for LTCG equity.
-    // In a simple estimation, if total longTermGains (across equity) > 125,000, we apply 12.5% only on the excess.
-    // Let's implement this elegant macro adjustment!
+    // Adjust longTermGains estimated tax with the ₹1.25 Lakh exemption limit
     let totalLtcgTax = 0;
     if (longTermGains > 125000) {
       totalLtcgTax = (longTermGains - 125000) * 0.125;
     } else {
-      totalLtcgTax = 0; // Below exemption limit
+      totalLtcgTax = 0;
     }
 
     // Since we also have Gold/SGB in LTCG at 20%, we add their specific tax values

@@ -1,112 +1,132 @@
 import { connectToDatabase } from "./db";
 import { Holding, WatchlistItem, PriceAlert } from "../models/types";
 
-// In-memory fallback database for zero-config out-of-the-box local usage
-interface InMemoryDb {
+// Multi-tenant in-memory database helper
+interface UserDb {
   holdings: Holding[];
   watchlist: WatchlistItem[];
   alerts: PriceAlert[];
   targetAllocation: { stock: number; mutual_fund: number; gold: number };
 }
 
+interface InMemoryDb {
+  [userId: string]: UserDb;
+}
+
 const globalWithStorage = global as typeof globalThis & {
   _inMemoryDb?: InMemoryDb;
 };
 
-// Seed some initial elegant holdings so the dashboard looks beautiful instantly
 if (!globalWithStorage._inMemoryDb) {
-  globalWithStorage._inMemoryDb = {
-    holdings: [
-      {
-        id: "h1",
-        symbol: "RELIANCE.NS",
-        name: "Reliance Industries Ltd.",
-        type: "stock",
-        currency: "INR",
-        quantity: 15,
-        buyPrice: 2450.0,
-        buyDate: "2024-01-15",
-        exchangeRate: 1.0,
-        sector: "Energy",
-      },
-      {
-        id: "h2",
-        symbol: "INFY.NS",
-        name: "Infosys Limited",
-        type: "stock",
-        currency: "INR",
-        quantity: 25,
-        buyPrice: 1550.0,
-        buyDate: "2024-03-10",
-        exchangeRate: 1.0,
-        sector: "Technology",
-      },
-      {
-        id: "h3",
-        symbol: "AAPL",
-        name: "Apple Inc.",
-        type: "stock",
-        currency: "USD",
-        quantity: 5,
-        buyPrice: 175.5,
-        buyDate: "2023-11-20",
-        exchangeRate: 83.2, // 83.2 INR per USD historically
-        sector: "Technology",
-      },
-      {
-        id: "h4",
-        symbol: "120503", // SBI Bluechip Fund Scheme Code
-        name: "SBI Bluechip Fund - Direct Growth",
-        type: "mutual_fund",
-        currency: "INR",
-        quantity: 520.45,
-        buyPrice: 76.85,
-        buyDate: "2023-06-15",
-        exchangeRate: 1.0,
-        sector: "Mutual Funds",
-      },
-      {
-        id: "h5",
-        symbol: "GOLD", // Digital Gold gram tracker
-        name: "Digital Gold (24K)",
-        type: "gold",
-        currency: "INR",
-        quantity: 8.5,
-        buyPrice: 6200.0,
-        buyDate: "2024-02-05",
-        exchangeRate: 1.0,
-        sector: "Alternative Assets",
-      },
-      {
-        id: "h6",
-        symbol: "SGBDE32VIII.NS", // SGB Nov 2032 Bond
-        name: "Sovereign Gold Bond 2.5% Dec 2032 Series",
-        type: "sgb",
-        currency: "INR",
-        quantity: 10,
-        buyPrice: 6150.0, // Issue/Purchase price
-        buyDate: "2023-12-18",
-        exchangeRate: 1.0,
-        sector: "Bonds",
-      },
-    ],
-    watchlist: [
-      { id: "w1", symbol: "TCS.NS", name: "Tata Consultancy Services Ltd", type: "stock" },
-      { id: "w2", symbol: "MSFT", name: "Microsoft Corporation", type: "stock" },
-      { id: "w3", symbol: "102868", name: "Parag Parikh Flexi Cap Fund", type: "mutual_fund" },
-    ],
-    alerts: [
-      { id: "a1", symbol: "RELIANCE.NS", targetPrice: 3000, condition: "above", active: true, createdAt: "2026-05-24T12:00:00.000Z" }
-    ],
-    targetAllocation: { stock: 60, mutual_fund: 30, gold: 10 },
-  };
+  globalWithStorage._inMemoryDb = {};
 }
 
 const memDb = globalWithStorage._inMemoryDb;
 
-/**
- * Checks if MongoDB connection is fully functional.
- */
+// Helper to get or initialize a user's in-memory storage
+function getUserMemDb(userId: string): UserDb {
+  const normalizedId = userId || "default";
+  if (!memDb[normalizedId]) {
+    // Seed standard elegant holdings ONLY for the default mock user to support tests out-of-the-box
+    if (normalizedId === "mock-user-id" || normalizedId === "default") {
+      memDb[normalizedId] = {
+        holdings: [
+          {
+            id: "h1",
+            symbol: "RELIANCE.NS",
+            name: "Reliance Industries Ltd.",
+            type: "stock",
+            currency: "INR",
+            quantity: 15,
+            buyPrice: 2450.0,
+            buyDate: "2024-01-15",
+            exchangeRate: 1.0,
+            sector: "Energy",
+          },
+          {
+            id: "h2",
+            symbol: "INFY.NS",
+            name: "Infosys Limited",
+            type: "stock",
+            currency: "INR",
+            quantity: 25,
+            buyPrice: 1550.0,
+            buyDate: "2024-03-10",
+            exchangeRate: 1.0,
+            sector: "Technology",
+          },
+          {
+            id: "h3",
+            symbol: "AAPL",
+            name: "Apple Inc.",
+            type: "stock",
+            currency: "USD",
+            quantity: 5,
+            buyPrice: 175.5,
+            buyDate: "2023-11-20",
+            exchangeRate: 83.2,
+            sector: "Technology",
+          },
+          {
+            id: "h4",
+            symbol: "120503",
+            name: "SBI Bluechip Fund - Direct Growth",
+            type: "mutual_fund",
+            currency: "INR",
+            quantity: 520.45,
+            buyPrice: 76.85,
+            buyDate: "2023-06-15",
+            exchangeRate: 1.0,
+            sector: "Mutual Funds",
+          },
+          {
+            id: "h5",
+            symbol: "GOLD",
+            name: "Digital Gold (24K)",
+            type: "gold",
+            currency: "INR",
+            quantity: 8.5,
+            buyPrice: 6200.0,
+            buyDate: "2024-02-05",
+            exchangeRate: 1.0,
+            sector: "Alternative Assets",
+          },
+          {
+            id: "h6",
+            symbol: "SGBDE32VIII.NS",
+            name: "Sovereign Gold Bond 2.5% Dec 2032 Series",
+            type: "sgb",
+            currency: "INR",
+            quantity: 10,
+            buyPrice: 6150.0,
+            buyDate: "2023-12-18",
+            exchangeRate: 1.0,
+            sector: "Bonds",
+          },
+        ],
+        watchlist: [
+          { id: "w1", symbol: "TCS.NS", name: "Tata Consultancy Services Ltd", type: "stock" },
+          { id: "w2", symbol: "MSFT", name: "Microsoft Corporation", type: "stock" },
+          { id: "w3", symbol: "102868", name: "Parag Parikh Flexi Cap Fund", type: "mutual_fund" },
+        ],
+        alerts: [
+          { id: "a1", symbol: "RELIANCE.NS", targetPrice: 3000, condition: "above", active: true, createdAt: "2026-05-24T12:00:00.000Z" }
+        ],
+        targetAllocation: { stock: 60, mutual_fund: 30, gold: 10 },
+      };
+    } else {
+      // Real new users start empty with a default allocation
+      memDb[normalizedId] = {
+        holdings: [],
+        watchlist: [],
+        alerts: [],
+        targetAllocation: { stock: 60, mutual_fund: 30, gold: 10 },
+      };
+    }
+  }
+  return memDb[normalizedId];
+}
+
 async function getDbSafe() {
   try {
     const { db } = await connectToDatabase();
@@ -118,49 +138,50 @@ async function getDbSafe() {
 
 // ==================== HOLDINGS CRUD ====================
 
-export async function getHoldings(): Promise<Holding[]> {
+export async function getHoldings(userId: string): Promise<Holding[]> {
   const db = await getDbSafe();
   if (db) {
-    const data = await db.collection("holdings").find({}).toArray();
-    return data.map(({ _id, ...rest }) => rest as Holding);
+    const data = await db.collection("holdings").find({ userId }).toArray();
+    return data.map(({ _id, userId: _, ...rest }) => rest as Holding);
   }
-  return memDb.holdings;
+  return getUserMemDb(userId).holdings;
 }
 
-export async function addHolding(holding: Holding): Promise<Holding> {
+export async function addHolding(userId: string, holding: Holding): Promise<Holding> {
   const db = await getDbSafe();
   if (db) {
-    // Avoid _id leaks by not supplying it, or using custom structure
-    await db.collection("holdings").insertOne({ ...holding });
+    await db.collection("holdings").insertOne({ ...holding, userId });
   } else {
-    memDb.holdings.push(holding);
+    getUserMemDb(userId).holdings.push(holding);
   }
   return holding;
 }
 
-export async function updateHolding(id: string, updates: Partial<Holding>): Promise<boolean> {
+export async function updateHolding(userId: string, id: string, updates: Partial<Holding>): Promise<boolean> {
   const db = await getDbSafe();
   if (db) {
-    const res = await db.collection("holdings").updateOne({ id }, { $set: updates });
+    const res = await db.collection("holdings").updateOne({ id, userId }, { $set: updates });
     return res.modifiedCount > 0;
   }
-  const idx = memDb.holdings.findIndex((h) => h.id === id);
+  const userMem = getUserMemDb(userId);
+  const idx = userMem.holdings.findIndex((h) => h.id === id);
   if (idx !== -1) {
-    memDb.holdings[idx] = { ...memDb.holdings[idx], ...updates };
+    userMem.holdings[idx] = { ...userMem.holdings[idx], ...updates };
     return true;
   }
   return false;
 }
 
-export async function deleteHolding(id: string): Promise<boolean> {
+export async function deleteHolding(userId: string, id: string): Promise<boolean> {
   const db = await getDbSafe();
   if (db) {
-    const res = await db.collection("holdings").deleteOne({ id });
+    const res = await db.collection("holdings").deleteOne({ id, userId });
     return res.deletedCount > 0;
   }
-  const idx = memDb.holdings.findIndex((h) => h.id === id);
+  const userMem = getUserMemDb(userId);
+  const idx = userMem.holdings.findIndex((h) => h.id === id);
   if (idx !== -1) {
-    memDb.holdings.splice(idx, 1);
+    userMem.holdings.splice(idx, 1);
     return true;
   }
   return false;
@@ -168,34 +189,35 @@ export async function deleteHolding(id: string): Promise<boolean> {
 
 // ==================== WATCHLIST CRUD ====================
 
-export async function getWatchlist(): Promise<WatchlistItem[]> {
+export async function getWatchlist(userId: string): Promise<WatchlistItem[]> {
   const db = await getDbSafe();
   if (db) {
-    const data = await db.collection("watchlist").find({}).toArray();
-    return data.map(({ _id, ...rest }) => rest as WatchlistItem);
+    const data = await db.collection("watchlist").find({ userId }).toArray();
+    return data.map(({ _id, userId: _, ...rest }) => rest as WatchlistItem);
   }
-  return memDb.watchlist;
+  return getUserMemDb(userId).watchlist;
 }
 
-export async function addWatchlistItem(item: WatchlistItem): Promise<WatchlistItem> {
+export async function addWatchlistItem(userId: string, item: WatchlistItem): Promise<WatchlistItem> {
   const db = await getDbSafe();
   if (db) {
-    await db.collection("watchlist").insertOne({ ...item });
+    await db.collection("watchlist").insertOne({ ...item, userId });
   } else {
-    memDb.watchlist.push(item);
+    getUserMemDb(userId).watchlist.push(item);
   }
   return item;
 }
 
-export async function deleteWatchlistItem(id: string): Promise<boolean> {
+export async function deleteWatchlistItem(userId: string, id: string): Promise<boolean> {
   const db = await getDbSafe();
   if (db) {
-    const res = await db.collection("watchlist").deleteOne({ id });
+    const res = await db.collection("watchlist").deleteOne({ id, userId });
     return res.deletedCount > 0;
   }
-  const idx = memDb.watchlist.findIndex((w) => w.id === id);
+  const userMem = getUserMemDb(userId);
+  const idx = userMem.watchlist.findIndex((w) => w.id === id);
   if (idx !== -1) {
-    memDb.watchlist.splice(idx, 1);
+    userMem.watchlist.splice(idx, 1);
     return true;
   }
   return false;
@@ -203,48 +225,50 @@ export async function deleteWatchlistItem(id: string): Promise<boolean> {
 
 // ==================== PRICE ALERTS CRUD ====================
 
-export async function getPriceAlerts(): Promise<PriceAlert[]> {
+export async function getPriceAlerts(userId: string): Promise<PriceAlert[]> {
   const db = await getDbSafe();
   if (db) {
-    const data = await db.collection("alerts").find({}).toArray();
-    return data.map(({ _id, ...rest }) => rest as PriceAlert);
+    const data = await db.collection("alerts").find({ userId }).toArray();
+    return data.map(({ _id, userId: _, ...rest }) => rest as PriceAlert);
   }
-  return memDb.alerts;
+  return getUserMemDb(userId).alerts;
 }
 
-export async function addPriceAlert(alert: PriceAlert): Promise<PriceAlert> {
+export async function addPriceAlert(userId: string, alert: PriceAlert): Promise<PriceAlert> {
   const db = await getDbSafe();
   if (db) {
-    await db.collection("alerts").insertOne({ ...alert });
+    await db.collection("alerts").insertOne({ ...alert, userId });
   } else {
-    memDb.alerts.push(alert);
+    getUserMemDb(userId).alerts.push(alert);
   }
   return alert;
 }
 
-export async function updatePriceAlert(id: string, updates: Partial<PriceAlert>): Promise<boolean> {
+export async function updatePriceAlert(userId: string, id: string, updates: Partial<PriceAlert>): Promise<boolean> {
   const db = await getDbSafe();
   if (db) {
-    const res = await db.collection("alerts").updateOne({ id }, { $set: updates });
+    const res = await db.collection("alerts").updateOne({ id, userId }, { $set: updates });
     return res.modifiedCount > 0;
   }
-  const idx = memDb.alerts.findIndex((a) => a.id === id);
+  const userMem = getUserMemDb(userId);
+  const idx = userMem.alerts.findIndex((a) => a.id === id);
   if (idx !== -1) {
-    memDb.alerts[idx] = { ...memDb.alerts[idx], ...updates };
+    userMem.alerts[idx] = { ...userMem.alerts[idx], ...updates };
     return true;
   }
   return false;
 }
 
-export async function deletePriceAlert(id: string): Promise<boolean> {
+export async function deletePriceAlert(userId: string, id: string): Promise<boolean> {
   const db = await getDbSafe();
   if (db) {
-    const res = await db.collection("alerts").deleteOne({ id });
+    const res = await db.collection("alerts").deleteOne({ id, userId });
     return res.deletedCount > 0;
   }
-  const idx = memDb.alerts.findIndex((a) => a.id === id);
+  const userMem = getUserMemDb(userId);
+  const idx = userMem.alerts.findIndex((a) => a.id === id);
   if (idx !== -1) {
-    memDb.alerts.splice(idx, 1);
+    userMem.alerts.splice(idx, 1);
     return true;
   }
   return false;
@@ -252,10 +276,10 @@ export async function deletePriceAlert(id: string): Promise<boolean> {
 
 // ==================== TARGET ALLOCATION CRUD ====================
 
-export async function getTargetAllocation(): Promise<{ stock: number; mutual_fund: number; gold: number }> {
+export async function getTargetAllocation(userId: string): Promise<{ stock: number; mutual_fund: number; gold: number }> {
   const db = await getDbSafe();
   if (db) {
-    const data = await db.collection("settings").findOne({ type: "target_allocation" });
+    const data = await db.collection("settings").findOne({ type: "target_allocation", userId });
     if (data) {
       return {
         stock: data.stock,
@@ -264,19 +288,19 @@ export async function getTargetAllocation(): Promise<{ stock: number; mutual_fun
       };
     }
   }
-  return memDb.targetAllocation;
+  return getUserMemDb(userId).targetAllocation;
 }
 
-export async function saveTargetAllocation(stock: number, mutual_fund: number, gold: number): Promise<boolean> {
+export async function saveTargetAllocation(userId: string, stock: number, mutual_fund: number, gold: number): Promise<boolean> {
   const db = await getDbSafe();
   if (db) {
     await db.collection("settings").updateOne(
-      { type: "target_allocation" },
+      { type: "target_allocation", userId },
       { $set: { stock, mutual_fund, gold } },
       { upsert: true }
     );
     return true;
   }
-  memDb.targetAllocation = { stock, mutual_fund, gold };
+  getUserMemDb(userId).targetAllocation = { stock, mutual_fund, gold };
   return true;
 }
