@@ -86,7 +86,7 @@ export async function POST() {
 
     if (GEMINI_API_KEY) {
       try {
-        const prompt = `You are "Antigravity AI Portfolio Advisor", a premium, analytical full-stack financial coach.
+        const prompt = `You are "Investment Tracker AI Portfolio Advisor", a premium, analytical full-stack financial coach.
 Review the following active investment portfolio metrics and write a professional, encouraging, and highly specific financial health diagnostic report.
 Output in standard, clean GitHub Markdown with headers. Do NOT include generic disclaimers at the beginning; go straight to the core findings.
 

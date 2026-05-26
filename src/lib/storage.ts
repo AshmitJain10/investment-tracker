@@ -7,6 +7,7 @@ interface UserDb {
   watchlist: WatchlistItem[];
   alerts: PriceAlert[];
   targetAllocation: { stock: number; mutual_fund: number; gold: number };
+  goldSip?: { checkedDates: string[]; dailySipAmount: number };
 }
 
 interface InMemoryDb {
@@ -113,6 +114,7 @@ function getUserMemDb(userId: string): UserDb {
           { id: "a1", symbol: "RELIANCE.NS", targetPrice: 3000, condition: "above", active: true, createdAt: "2026-05-24T12:00:00.000Z" }
         ],
         targetAllocation: { stock: 60, mutual_fund: 30, gold: 10 },
+        goldSip: { checkedDates: [], dailySipAmount: 500 },
       };
     } else {
       // Real new users start empty with a default allocation
@@ -121,6 +123,7 @@ function getUserMemDb(userId: string): UserDb {
         watchlist: [],
         alerts: [],
         targetAllocation: { stock: 60, mutual_fund: 30, gold: 10 },
+        goldSip: { checkedDates: [], dailySipAmount: 500 },
       };
     }
   }
@@ -302,5 +305,40 @@ export async function saveTargetAllocation(userId: string, stock: number, mutual
     return true;
   }
   getUserMemDb(userId).targetAllocation = { stock, mutual_fund, gold };
+  return true;
+}
+
+// ==================== GOLD SIP PERSISTENCE CRUD ====================
+
+export async function getGoldSipData(userId: string): Promise<{ checkedDates: string[]; dailySipAmount: number }> {
+  const db = await getDbSafe();
+  if (db) {
+    const data = await db.collection("settings").findOne({ type: "gold_sip", userId });
+    if (data) {
+      return {
+        checkedDates: data.checkedDates || [],
+        dailySipAmount: data.dailySipAmount || 500,
+      };
+    }
+  }
+  const mem = getUserMemDb(userId);
+  if (!mem.goldSip) {
+    mem.goldSip = { checkedDates: [], dailySipAmount: 500 };
+  }
+  return mem.goldSip;
+}
+
+export async function saveGoldSipData(userId: string, checkedDates: string[], dailySipAmount: number): Promise<boolean> {
+  const db = await getDbSafe();
+  if (db) {
+    await db.collection("settings").updateOne(
+      { type: "gold_sip", userId },
+      { $set: { checkedDates, dailySipAmount } },
+      { upsert: true }
+    );
+    return true;
+  }
+  const mem = getUserMemDb(userId);
+  mem.goldSip = { checkedDates, dailySipAmount };
   return true;
 }

@@ -25,7 +25,7 @@ export async function GET() {
 }
 
 /**
- * POST: Create a new holding
+ * POST: Create or aggregate a holding (Weighted Average Cost Basis)
  */
 export async function POST(req: NextRequest) {
   try {
@@ -55,16 +55,71 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Dynamic Mutual Fund Naming from API
+    let processedName = name.trim();
+    if (type === "mutual_fund") {
+      try {
+        const cleanAmfi = processedSymbol.match(/^\d{5,6}/)?.[0] || processedSymbol;
+        const mfResponse = await fetch(`https://api.mfapi.in/mf/${cleanAmfi}`);
+        if (mfResponse.ok) {
+          const mfJson = await mfResponse.json();
+          if (mfJson && mfJson.meta && mfJson.meta.scheme_name) {
+            processedName = mfJson.meta.scheme_name;
+          }
+        }
+      } catch (err) {
+        console.warn(`Failed to fetch scheme name for AMFI ${processedSymbol}:`, err);
+      }
+    }
+
     // Calculate historical forex exchange rate if currency is USD
     let exchangeRate = 1.0;
     if (currency === "USD") {
       exchangeRate = await fetchHistoricalExchangeRate(buyDate);
     }
 
+    const holdings = await getHoldings(userId);
+    const existingHolding = holdings.find(
+      (h) => h.symbol.toUpperCase() === processedSymbol
+    );
+
+    if (existingHolding) {
+      const oldQty = existingHolding.quantity;
+      const oldBuyPrice = existingHolding.buyPrice;
+      const oldExchangeRate = existingHolding.exchangeRate || 1.0;
+      
+      const addedQty = Number(quantity);
+      const addedBuyPrice = Number(buyPrice);
+      const addedExchangeRate = exchangeRate;
+
+      const newQty = oldQty + addedQty;
+      // WACB Formula: ((old_qty * old_avg_price) + (added_qty * added_price)) / (old_qty + added_qty)
+      const newBuyPrice = ((oldQty * oldBuyPrice) + (addedQty * addedBuyPrice)) / newQty;
+      // Weighted average exchange rate
+      const newExchangeRate = ((oldQty * oldExchangeRate) + (addedQty * addedExchangeRate)) / newQty;
+
+      const updates: Partial<Holding> = {
+        quantity: newQty,
+        buyPrice: Number(newBuyPrice.toFixed(4)),
+        exchangeRate: Number(newExchangeRate.toFixed(4)),
+      };
+
+      // Keep the original buy date or update if user wants?
+      // Typically we update to the most recent buyDate or keep the original. Let's keep original or update it.
+      // Updates are stored back into the DB
+      await updateHolding(userId, existingHolding.id, updates);
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: "Holding aggregated successfully", 
+        data: { ...existingHolding, ...updates } 
+      });
+    }
+
     const newHolding: Holding = {
       id: uuidv4(),
       symbol: processedSymbol,
-      name: name.trim(),
+      name: processedName,
       type,
       currency: currency || "INR",
       quantity: Number(quantity),

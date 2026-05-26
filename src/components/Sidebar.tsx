@@ -2,8 +2,8 @@ import React from "react";
 import { LayoutDashboard, Scale, Landmark, Eye, Sparkles, BellRing, TrendingUp } from "lucide-react";
 
 interface SidebarProps {
-  activeTab: "dashboard" | "rebalance" | "analytics" | "watchlist" | "ai" | "alerts";
-  setActiveTab: (tab: "dashboard" | "rebalance" | "analytics" | "watchlist" | "ai" | "alerts") => void;
+  activeTab: "dashboard" | "rebalance" | "analytics" | "watchlist" | "ai" | "alerts" | "ai-baskets";
+  setActiveTab: (tab: "dashboard" | "rebalance" | "analytics" | "watchlist" | "ai" | "alerts" | "ai-baskets") => void;
   numberOfHoldings: number;
 }
 
@@ -39,6 +39,12 @@ export default function Sidebar({ activeTab, setActiveTab, numberOfHoldings }: S
       label: "AI Advisor insights",
       icon: Sparkles,
       description: "Full LLM diagnostic reports",
+    },
+    {
+      id: "ai-baskets" as const,
+      label: "AI Basket Scorer",
+      icon: Sparkles,
+      description: "Danelfin-style basket audits",
     },
     {
       id: "alerts" as const,
