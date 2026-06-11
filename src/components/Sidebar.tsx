@@ -1,9 +1,9 @@
 import React from "react";
-import { LayoutDashboard, Scale, Landmark, Eye, Sparkles, BellRing, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Scale, Landmark, Eye, Sparkles, BellRing, TrendingUp, Newspaper } from "lucide-react";
 
 interface SidebarProps {
-  activeTab: "dashboard" | "rebalance" | "analytics" | "watchlist" | "ai" | "alerts" | "ai-baskets";
-  setActiveTab: (tab: "dashboard" | "rebalance" | "analytics" | "watchlist" | "ai" | "alerts" | "ai-baskets") => void;
+  activeTab: "dashboard" | "rebalance" | "analytics" | "watchlist" | "ai" | "alerts" | "ai-baskets" | "market-news";
+  setActiveTab: (tab: "dashboard" | "rebalance" | "analytics" | "watchlist" | "ai" | "alerts" | "ai-baskets" | "market-news") => void;
   numberOfHoldings: number;
 }
 
@@ -15,6 +15,12 @@ export default function Sidebar({ activeTab, setActiveTab, numberOfHoldings }: S
       label: "Portfolio Overview",
       icon: LayoutDashboard,
       description: "Asset list, value charts & metrics",
+    },
+    {
+      id: "market-news" as const,
+      label: "Market News",
+      icon: Newspaper,
+      description: "Curated real-time asset news",
     },
     {
       id: "rebalance" as const,

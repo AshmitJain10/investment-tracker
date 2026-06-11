@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]/route";
-import { getHoldings, addHolding, updateHolding, deleteHolding } from "@/lib/storage";
+import { getHoldings, addHolding, updateHolding, deleteHolding, addTransaction, deleteHoldingWithTransactions, recalculateHoldingForSymbol } from "@/lib/storage";
 import { fetchHistoricalExchangeRate } from "@/lib/math/forex";
 import { Holding } from "@/models/types";
 
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { symbol, name, type, currency, quantity, buyPrice, buyDate, sector } = body;
 
-    if (!symbol || !name || !type || !quantity || buyPrice === undefined || !buyDate) {
+    if (!symbol || !name || !type || quantity === undefined || buyPrice === undefined || !buyDate) {
       return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 });
     }
 
@@ -78,46 +78,9 @@ export async function POST(req: NextRequest) {
       exchangeRate = await fetchHistoricalExchangeRate(buyDate);
     }
 
-    const holdings = await getHoldings(userId);
-    const existingHolding = holdings.find(
-      (h) => h.symbol.toUpperCase() === processedSymbol
-    );
-
-    if (existingHolding) {
-      const oldQty = existingHolding.quantity;
-      const oldBuyPrice = existingHolding.buyPrice;
-      const oldExchangeRate = existingHolding.exchangeRate || 1.0;
-      
-      const addedQty = Number(quantity);
-      const addedBuyPrice = Number(buyPrice);
-      const addedExchangeRate = exchangeRate;
-
-      const newQty = oldQty + addedQty;
-      // WACB Formula: ((old_qty * old_avg_price) + (added_qty * added_price)) / (old_qty + added_qty)
-      const newBuyPrice = ((oldQty * oldBuyPrice) + (addedQty * addedBuyPrice)) / newQty;
-      // Weighted average exchange rate
-      const newExchangeRate = ((oldQty * oldExchangeRate) + (addedQty * addedExchangeRate)) / newQty;
-
-      const updates: Partial<Holding> = {
-        quantity: newQty,
-        buyPrice: Number(newBuyPrice.toFixed(4)),
-        exchangeRate: Number(newExchangeRate.toFixed(4)),
-      };
-
-      // Keep the original buy date or update if user wants?
-      // Typically we update to the most recent buyDate or keep the original. Let's keep original or update it.
-      // Updates are stored back into the DB
-      await updateHolding(userId, existingHolding.id, updates);
-      
-      return NextResponse.json({ 
-        success: true, 
-        message: "Holding aggregated successfully", 
-        data: { ...existingHolding, ...updates } 
-      });
-    }
-
-    const newHolding: Holding = {
+    const newTx = {
       id: uuidv4(),
+      userId,
       symbol: processedSymbol,
       name: processedName,
       type,
@@ -129,8 +92,14 @@ export async function POST(req: NextRequest) {
       sector: sector || "General",
     };
 
-    await addHolding(userId, newHolding);
-    return NextResponse.json({ success: true, data: newHolding }, { status: 201 });
+    await addTransaction(userId, newTx);
+    await recalculateHoldingForSymbol(userId, processedSymbol);
+
+    // Fetch the newly updated holding to return to the client
+    const holdings = await getHoldings(userId);
+    const updatedHolding = holdings.find((h) => h.symbol.toUpperCase() === processedSymbol);
+
+    return NextResponse.json({ success: true, data: updatedHolding || newTx }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
@@ -188,7 +157,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Missing holding ID" }, { status: 400 });
     }
 
-    const success = await deleteHolding(userId, id);
+    const success = await deleteHoldingWithTransactions(userId, id);
     if (!success) {
       return NextResponse.json({ success: false, error: "Holding not found" }, { status: 404 });
     }

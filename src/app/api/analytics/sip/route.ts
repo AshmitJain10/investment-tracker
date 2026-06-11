@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]/route";
-import { getHoldings } from "@/lib/storage";
+import { getTransactions } from "@/lib/storage";
 import { SipHealthDetails } from "@/models/types";
 
 /**
@@ -15,19 +15,19 @@ export async function GET() {
     }
     const userId = (session.user as any).id || session.user.email || "default";
 
-    const holdings = await getHoldings(userId);
+    const transactions = await getTransactions(userId);
 
-    if (holdings.length === 0) {
+    if (transactions.length === 0) {
       return NextResponse.json({ success: true, data: [] });
     }
 
     // Group transactions by symbol
-    const grouped: Record<string, typeof holdings> = {};
-    for (const h of holdings) {
-      if (!grouped[h.symbol]) {
-        grouped[h.symbol] = [];
+    const grouped: Record<string, typeof transactions> = {};
+    for (const t of transactions) {
+      if (!grouped[t.symbol]) {
+        grouped[t.symbol] = [];
       }
-      grouped[h.symbol].push(h);
+      grouped[t.symbol].push(t);
     }
 
     const sipAnalysis: SipHealthDetails[] = [];

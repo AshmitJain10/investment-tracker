@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Plus, Edit2, Trash2, Search, X, Calendar, Download, Upload } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, X, Calendar, Download, Upload, History, Save, RefreshCw } from "lucide-react";
 import { Holding } from "@/models/types";
 
 interface TableProps {
@@ -61,6 +61,18 @@ export default function HoldingsTable({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedHolding, setSelectedHolding] = useState<Holding | null>(null);
+
+  // Transaction History Modal states
+  const [showTxModal, setShowTxModal] = useState(false);
+  const [txModalAsset, setTxModalAsset] = useState<Holding | null>(null);
+  const [assetTransactions, setAssetTransactions] = useState<any[]>([]);
+  const [txLoading, setTxLoading] = useState(false);
+  const [editingTxId, setEditingTxId] = useState<string | null>(null);
+  
+  // Inline edit states
+  const [editDate, setEditDate] = useState("");
+  const [editQuantity, setEditQuantity] = useState("");
+  const [editPrice, setEditPrice] = useState("");
 
   // Form states
   const [searchQuery, setSearchQuery] = useState("");
@@ -176,6 +188,81 @@ export default function HoldingsTable({
 
     await onEditHolding(selectedHolding.id, updates);
     setShowEditModal(false);
+  };
+
+  // Transaction History Modal Handlers
+  const fetchTransactions = async (symbol: string) => {
+    try {
+      setTxLoading(true);
+      const res = await fetch(`/api/transactions/${encodeURIComponent(symbol)}`);
+      const json = await res.json();
+      if (json.success && json.data) {
+        setAssetTransactions(json.data);
+        if (json.data.length === 0) {
+          setShowTxModal(false);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load asset transactions:", err);
+    } finally {
+      setTxLoading(false);
+    }
+  };
+
+  const handleOpenTxModal = (h: Holding) => {
+    setTxModalAsset(h);
+    setShowTxModal(true);
+    setEditingTxId(null);
+    fetchTransactions(h.symbol);
+  };
+
+  const handleStartInlineEdit = (tx: any) => {
+    setEditingTxId(tx.id);
+    setEditDate(tx.buyDate);
+    setEditQuantity(String(tx.quantity));
+    setEditPrice(String(tx.buyPrice));
+  };
+
+  const handleSaveInlineEdit = async (tx: any) => {
+    if (!editDate || !editQuantity || !editPrice) return;
+    try {
+      const res = await fetch("/api/transactions", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: tx.id,
+          buyDate: editDate,
+          quantity: Number(editQuantity),
+          buyPrice: Number(editPrice),
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setEditingTxId(null);
+        await fetchTransactions(tx.symbol);
+        await onEditHolding(txModalAsset!.id, {}); // Trigger parent refresh
+      } else {
+        alert(`Failed to save transaction: ${json.error}`);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteTransaction = async (tx: any) => {
+    if (!confirm("Are you sure you want to delete this purchase transaction?")) return;
+    try {
+      const res = await fetch(`/api/transactions?id=${tx.id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (json.success) {
+        await fetchTransactions(tx.symbol);
+        await onEditHolding(txModalAsset!.id, {}); // Trigger parent refresh
+      } else {
+        alert(`Failed to delete transaction: ${json.error}`);
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // CSV EXPORT
@@ -332,10 +419,17 @@ export default function HoldingsTable({
                 return (
                   <tr key={h.id} className="hover:bg-gray-900/30 smooth-transition">
                     <td className="p-4">
-                      <div className="font-bold text-white text-sm">{h.symbol}</div>
-                      <div className="text-gray-400 max-w-[150px] md:max-w-[200px] truncate text-[10px] mt-0.5">
-                        {h.name}
-                      </div>
+                      <button
+                        onClick={() => handleOpenTxModal(h)}
+                        className="text-left focus:outline-none cursor-pointer group"
+                      >
+                        <div className="font-bold text-white text-sm group-hover:text-emerald-400 smooth-transition flex items-center gap-1">
+                          {h.symbol}
+                        </div>
+                        <div className="text-gray-400 max-w-[150px] md:max-w-[200px] truncate text-[10px] mt-0.5 group-hover:text-gray-300 smooth-transition">
+                          {h.name}
+                        </div>
+                      </button>
                     </td>
                     <td className="p-4 hidden md:table-cell uppercase font-semibold text-[10px] tracking-wider text-gray-500">
                       {h.type === "mutual_fund" ? "Mutual Fund" : h.type}
@@ -375,11 +469,11 @@ export default function HoldingsTable({
                     <td className="p-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
                         <button
-                          onClick={() => handleOpenEditModal(h)}
+                          onClick={() => handleOpenTxModal(h)}
                           className="p-1.5 bg-gray-900 border border-gray-800 rounded hover:bg-gray-800 text-indigo-400 hover:text-white smooth-transition cursor-pointer"
-                          title="Edit Transaction"
+                          title="Transaction History"
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
+                          <History className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={async () => {
@@ -653,6 +747,177 @@ export default function HoldingsTable({
                 Update Transaction
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: TRANSACTION HISTORY (DETAILED ASSET VIEW) */}
+      {showTxModal && txModalAsset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="glass-panel w-full max-w-2xl p-6 relative bg-gray-955 border border-gray-800/80 rounded-2xl shadow-2xl animate-fadeIn">
+            {/* Close Button */}
+            <button
+              onClick={() => setShowTxModal(false)}
+              className="absolute top-4 right-4 p-1 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white smooth-transition cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Header info */}
+            <div className="border-b border-gray-800 pb-3.5 mb-4">
+              <span className="text-[10px] bg-indigo-500/10 text-indigo-400 font-extrabold px-2.5 py-0.5 rounded border border-indigo-500/25 uppercase tracking-wider">
+                Transaction Ledger
+              </span>
+              <h3 className="text-lg font-black text-white mt-2">
+                {txModalAsset.symbol}
+              </h3>
+              <p className="text-xs text-gray-400 font-medium">{txModalAsset.name}</p>
+            </div>
+
+            {/* Content Table */}
+            <div className="overflow-x-auto max-h-96 pr-1">
+              {txLoading && assetTransactions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-indigo-400 text-xs">
+                  <RefreshCw className="w-6 h-6 animate-spin mb-2" />
+                  <span>Fetching transaction entries...</span>
+                </div>
+              ) : assetTransactions.length === 0 ? (
+                <div className="text-center py-12 text-gray-500 text-xs">
+                  No transaction entries found for this asset.
+                </div>
+              ) : (
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-gray-950/40 border-b border-gray-800 text-gray-400 font-semibold tracking-wider uppercase text-[10px]">
+                      <th className="p-3">Purchase Date</th>
+                      <th className="p-3 text-right">Shares/Units</th>
+                      <th className="p-3 text-right">Price per Unit</th>
+                      <th className="p-3 text-right">Total Invested</th>
+                      <th className="p-3 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800/40">
+                    {assetTransactions.map((tx) => {
+                      const isEditing = editingTxId === tx.id;
+                      const buyPriceINR = tx.buyPrice * tx.exchangeRate;
+                      const investedValueINR = tx.quantity * buyPriceINR;
+
+                      return (
+                        <tr key={tx.id} className="hover:bg-gray-900/20 smooth-transition">
+                          {/* Date Column */}
+                          <td className="p-3">
+                            {isEditing ? (
+                              <input
+                                type="date"
+                                value={editDate}
+                                onChange={(e) => setEditDate(e.target.value)}
+                                className="bg-gray-900 border border-gray-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 w-32 cursor-pointer"
+                              />
+                            ) : (
+                              <span className="font-medium text-gray-300">
+                                {new Date(tx.buyDate).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' })}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Quantity Column */}
+                          <td className="p-3 text-right">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                step="any"
+                                value={editQuantity}
+                                onChange={(e) => setEditQuantity(e.target.value)}
+                                className="bg-gray-900 border border-gray-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 w-20 text-right"
+                              />
+                            ) : (
+                              <span className="font-bold text-gray-200">
+                                {tx.quantity.toLocaleString("en-IN", { maximumFractionDigits: 4 })}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Unit Price Column */}
+                          <td className="p-3 text-right">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                step="any"
+                                value={editPrice}
+                                onChange={(e) => setEditPrice(e.target.value)}
+                                className="bg-gray-900 border border-gray-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500 w-24 text-right"
+                              />
+                            ) : (
+                              <span className="text-gray-400 font-medium">
+                                {tx.currency === "USD" ? "$" : "₹"}
+                                {tx.buyPrice.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {tx.currency === "USD" && (
+                                  <span className="block text-[8px] text-gray-500">
+                                    ₹{buyPriceINR.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Total Cost Column */}
+                          <td className="p-3 text-right font-bold text-white">
+                            {isEditing ? (
+                              <span className="text-gray-500 text-[10px] italic">Calculated live</span>
+                            ) : (
+                              <span>
+                                ₹{investedValueINR.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Action Buttons */}
+                          <td className="p-3 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              {isEditing ? (
+                                <>
+                                  <button
+                                    onClick={() => handleSaveInlineEdit(tx)}
+                                    className="p-1 bg-emerald-500/10 border border-emerald-500/20 rounded hover:bg-emerald-500 hover:text-white text-emerald-400 smooth-transition cursor-pointer"
+                                    title="Save changes"
+                                  >
+                                    <Save className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingTxId(null)}
+                                    className="p-1 bg-gray-900 border border-gray-800 rounded hover:bg-gray-800 text-gray-400 hover:text-white smooth-transition cursor-pointer"
+                                    title="Cancel"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => handleStartInlineEdit(tx)}
+                                    className="p-1 bg-gray-900 border border-gray-800 rounded hover:bg-gray-800 text-indigo-400 hover:text-white smooth-transition cursor-pointer"
+                                    title="Edit purchase entry"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteTransaction(tx)}
+                                    className="p-1 bg-gray-900 border border-gray-800 rounded hover:bg-gray-800 text-rose-500 hover:text-white smooth-transition cursor-pointer"
+                                    title="Delete purchase entry"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         </div>
       )}

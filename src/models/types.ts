@@ -14,6 +14,20 @@ export interface Holding {
   sector: string;          // Sector of the asset (e.g. Technology, Finance, etc.)
 }
 
+export interface Transaction {
+  id: string;              // Unique ID (UUID)
+  userId: string;          // Owner of the transaction
+  symbol: string;          // Ticker symbol (e.g. "AAPL", "RELIANCE.NS")
+  name: string;            // Name of the asset
+  type: AssetType;
+  currency: CurrencyType;
+  quantity: number;
+  buyPrice: number;        // Purchase price per unit (in purchase currency)
+  buyDate: string;         // YYYY-MM-DD
+  exchangeRate: number;    // Forex rate on buyDate (1.0 for INR)
+  sector: string;
+}
+
 export interface WatchlistItem {
   id: string;              // UUID
   symbol: string;

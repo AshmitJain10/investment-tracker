@@ -1,9 +1,11 @@
 import { connectToDatabase } from "./db";
-import { Holding, WatchlistItem, PriceAlert } from "../models/types";
+import { Holding, WatchlistItem, PriceAlert, Transaction } from "../models/types";
+import { randomUUID } from "crypto";
 
 // Multi-tenant in-memory database helper
 interface UserDb {
   holdings: Holding[];
+  transactions: Transaction[];
   watchlist: WatchlistItem[];
   alerts: PriceAlert[];
   targetAllocation: { stock: number; mutual_fund: number; gold: number };
@@ -40,7 +42,7 @@ function getUserMemDb(userId: string): UserDb {
             currency: "INR",
             quantity: 15,
             buyPrice: 2450.0,
-            buyDate: "2024-01-15",
+            buyDate: "2026-01-15",
             exchangeRate: 1.0,
             sector: "Energy",
           },
@@ -52,7 +54,7 @@ function getUserMemDb(userId: string): UserDb {
             currency: "INR",
             quantity: 25,
             buyPrice: 1550.0,
-            buyDate: "2024-03-10",
+            buyDate: "2026-04-10",
             exchangeRate: 1.0,
             sector: "Technology",
           },
@@ -64,7 +66,7 @@ function getUserMemDb(userId: string): UserDb {
             currency: "USD",
             quantity: 5,
             buyPrice: 175.5,
-            buyDate: "2023-11-20",
+            buyDate: "2025-11-20",
             exchangeRate: 83.2,
             sector: "Technology",
           },
@@ -76,7 +78,7 @@ function getUserMemDb(userId: string): UserDb {
             currency: "INR",
             quantity: 520.45,
             buyPrice: 76.85,
-            buyDate: "2023-06-15",
+            buyDate: "2025-07-15",
             exchangeRate: 1.0,
             sector: "Mutual Funds",
           },
@@ -88,7 +90,7 @@ function getUserMemDb(userId: string): UserDb {
             currency: "INR",
             quantity: 8.5,
             buyPrice: 6200.0,
-            buyDate: "2024-02-05",
+            buyDate: "2026-02-05",
             exchangeRate: 1.0,
             sector: "Alternative Assets",
           },
@@ -100,7 +102,158 @@ function getUserMemDb(userId: string): UserDb {
             currency: "INR",
             quantity: 10,
             buyPrice: 6150.0,
-            buyDate: "2023-12-18",
+            buyDate: "2025-12-18",
+            exchangeRate: 1.0,
+            sector: "Bonds",
+          },
+        ],
+        transactions: [
+          // Reliance: 3 purchases to support SIP & cash flow
+          {
+            id: "t1_1",
+            userId: normalizedId,
+            symbol: "RELIANCE.NS",
+            name: "Reliance Industries Ltd.",
+            type: "stock",
+            currency: "INR",
+            quantity: 5,
+            buyPrice: 2400.0,
+            buyDate: "2026-01-15",
+            exchangeRate: 1.0,
+            sector: "Energy",
+          },
+          {
+            id: "t1_2",
+            userId: normalizedId,
+            symbol: "RELIANCE.NS",
+            name: "Reliance Industries Ltd.",
+            type: "stock",
+            currency: "INR",
+            quantity: 5,
+            buyPrice: 2500.0,
+            buyDate: "2026-02-15",
+            exchangeRate: 1.0,
+            sector: "Energy",
+          },
+          {
+            id: "t1_3",
+            userId: normalizedId,
+            symbol: "RELIANCE.NS",
+            name: "Reliance Industries Ltd.",
+            type: "stock",
+            currency: "INR",
+            quantity: 5,
+            buyPrice: 2450.0,
+            buyDate: "2026-03-15",
+            exchangeRate: 1.0,
+            sector: "Energy",
+          },
+          // Infosys: 2 purchases
+          {
+            id: "t2_1",
+            userId: normalizedId,
+            symbol: "INFY.NS",
+            name: "Infosys Limited",
+            type: "stock",
+            currency: "INR",
+            quantity: 15,
+            buyPrice: 1550.0,
+            buyDate: "2026-04-10",
+            exchangeRate: 1.0,
+            sector: "Technology",
+          },
+          {
+            id: "t2_2",
+            userId: normalizedId,
+            symbol: "INFY.NS",
+            name: "Infosys Limited",
+            type: "stock",
+            currency: "INR",
+            quantity: 10,
+            buyPrice: 1550.0,
+            buyDate: "2026-05-10",
+            exchangeRate: 1.0,
+            sector: "Technology",
+          },
+          // Apple: 1 purchase in USD
+          {
+            id: "t3_1",
+            userId: normalizedId,
+            symbol: "AAPL",
+            name: "Apple Inc.",
+            type: "stock",
+            currency: "USD",
+            quantity: 5,
+            buyPrice: 175.5,
+            buyDate: "2025-11-20",
+            exchangeRate: 83.2,
+            sector: "Technology",
+          },
+          // SBI Bluechip: 3 purchases representing a monthly SIP
+          {
+            id: "t4_1",
+            userId: normalizedId,
+            symbol: "120503",
+            name: "SBI Bluechip Fund - Direct Growth",
+            type: "mutual_fund",
+            currency: "INR",
+            quantity: 120.45,
+            buyPrice: 76.85,
+            buyDate: "2025-07-15",
+            exchangeRate: 1.0,
+            sector: "Mutual Funds",
+          },
+          {
+            id: "t4_2",
+            userId: normalizedId,
+            symbol: "120503",
+            name: "SBI Bluechip Fund - Direct Growth",
+            type: "mutual_fund",
+            currency: "INR",
+            quantity: 200.0,
+            buyPrice: 76.85,
+            buyDate: "2025-08-15",
+            exchangeRate: 1.0,
+            sector: "Mutual Funds",
+          },
+          {
+            id: "t4_3",
+            userId: normalizedId,
+            symbol: "120503",
+            name: "SBI Bluechip Fund - Direct Growth",
+            type: "mutual_fund",
+            currency: "INR",
+            quantity: 200.0,
+            buyPrice: 76.85,
+            buyDate: "2025-09-15",
+            exchangeRate: 1.0,
+            sector: "Mutual Funds",
+          },
+          // Gold
+          {
+            id: "t5_1",
+            userId: normalizedId,
+            symbol: "GOLD",
+            name: "Digital Gold (24K)",
+            type: "gold",
+            currency: "INR",
+            quantity: 8.5,
+            buyPrice: 6200.0,
+            buyDate: "2026-02-05",
+            exchangeRate: 1.0,
+            sector: "Alternative Assets",
+          },
+          // SGB
+          {
+            id: "t6_1",
+            userId: normalizedId,
+            symbol: "SGBDE32VIII.NS",
+            name: "Sovereign Gold Bond 2.5% Dec 2032 Series",
+            type: "sgb",
+            currency: "INR",
+            quantity: 10,
+            buyPrice: 6150.0,
+            buyDate: "2025-12-18",
             exchangeRate: 1.0,
             sector: "Bonds",
           },
@@ -120,6 +273,7 @@ function getUserMemDb(userId: string): UserDb {
       // Real new users start empty with a default allocation
       memDb[normalizedId] = {
         holdings: [],
+        transactions: [],
         watchlist: [],
         alerts: [],
         targetAllocation: { stock: 60, mutual_fund: 30, gold: 10 },
@@ -341,4 +495,220 @@ export async function saveGoldSipData(userId: string, checkedDates: string[], da
   const mem = getUserMemDb(userId);
   mem.goldSip = { checkedDates, dailySipAmount };
   return true;
+}
+
+// ==================== TRANSACTIONS CRUD & RECALCULATION ====================
+
+
+
+export async function getTransactions(userId: string): Promise<Transaction[]> {
+  const db = await getDbSafe();
+  if (db) {
+    const data = await db.collection("transactions").find({ userId }).toArray();
+    return data.map(({ _id, userId: _, ...rest }) => rest as Transaction);
+  }
+  return getUserMemDb(userId).transactions || [];
+}
+
+export async function getTransactionsForAsset(userId: string, symbol: string): Promise<Transaction[]> {
+  const db = await getDbSafe();
+  if (db) {
+    const data = await db.collection("transactions").find({ userId, symbol: symbol.toUpperCase() }).toArray();
+    return data.map(({ _id, userId: _, ...rest }) => rest as Transaction);
+  }
+  const mem = getUserMemDb(userId);
+  return (mem.transactions || []).filter((t) => t.symbol.toUpperCase() === symbol.toUpperCase());
+}
+
+export async function addTransaction(userId: string, tx: Transaction): Promise<Transaction> {
+  const db = await getDbSafe();
+  if (db) {
+    await db.collection("transactions").insertOne({ ...tx, userId });
+  } else {
+    const mem = getUserMemDb(userId);
+    if (!mem.transactions) mem.transactions = [];
+    mem.transactions.push({ ...tx, userId });
+  }
+  return tx;
+}
+
+export async function updateTransaction(userId: string, id: string, updates: Partial<Transaction>): Promise<boolean> {
+  const db = await getDbSafe();
+  if (db) {
+    const res = await db.collection("transactions").updateOne({ id, userId }, { $set: updates });
+    return res.modifiedCount > 0;
+  }
+  const mem = getUserMemDb(userId);
+  const idx = (mem.transactions || []).findIndex((t) => t.id === id);
+  if (idx !== -1) {
+    mem.transactions[idx] = { ...mem.transactions[idx], ...updates };
+    return true;
+  }
+  return false;
+}
+
+export async function deleteTransaction(userId: string, id: string): Promise<boolean> {
+  const db = await getDbSafe();
+  if (db) {
+    const res = await db.collection("transactions").deleteOne({ id, userId });
+    return res.deletedCount > 0;
+  }
+  const mem = getUserMemDb(userId);
+  const idx = (mem.transactions || []).findIndex((t) => t.id === id);
+  if (idx !== -1) {
+    mem.transactions.splice(idx, 1);
+    return true;
+  }
+  return false;
+}
+
+export async function getTransactionById(userId: string, id: string): Promise<Transaction | null> {
+  const db = await getDbSafe();
+  if (db) {
+    const data = await db.collection("transactions").findOne({ id, userId });
+    if (data) {
+      const { _id, userId: _, ...rest } = data;
+      return rest as Transaction;
+    }
+    return null;
+  }
+  const mem = getUserMemDb(userId);
+  const tx = (mem.transactions || []).find((t) => t.id === id);
+  return tx || null;
+}
+
+export async function recalculateHoldingForSymbol(userId: string, symbol: string): Promise<void> {
+  const db = await getDbSafe();
+  const upperSymbol = symbol.toUpperCase();
+  
+  if (db) {
+    const txs = await db.collection("transactions").find({ userId, symbol: upperSymbol }).toArray();
+    
+    if (txs.length === 0) {
+      // Delete holding if no transactions remain
+      await db.collection("holdings").deleteOne({ userId, symbol: upperSymbol });
+      return;
+    }
+    
+    let totalQty = 0;
+    let totalCost = 0;
+    let totalExchangeRateWeighted = 0;
+    let earliestDate = txs[0].buyDate;
+    
+    for (const tx of txs) {
+      totalQty += tx.quantity;
+      totalCost += tx.quantity * tx.buyPrice;
+      totalExchangeRateWeighted += tx.quantity * (tx.exchangeRate || 1.0);
+      if (new Date(tx.buyDate).getTime() < new Date(earliestDate).getTime()) {
+        earliestDate = tx.buyDate;
+      }
+    }
+    
+    const wacb = totalCost / totalQty;
+    const avgExchangeRate = totalExchangeRateWeighted / totalQty;
+    const refTx = txs[0];
+    
+    const existing = await db.collection("holdings").findOne({ userId, symbol: upperSymbol });
+    
+    if (existing) {
+      await db.collection("holdings").updateOne(
+        { userId, symbol: upperSymbol },
+        {
+          $set: {
+            quantity: totalQty,
+            buyPrice: Number(wacb.toFixed(4)),
+            exchangeRate: Number(avgExchangeRate.toFixed(4)),
+            buyDate: earliestDate,
+          }
+        }
+      );
+    } else {
+      const newHolding = {
+        id: randomUUID(),
+        userId,
+        symbol: upperSymbol,
+        name: refTx.name,
+        type: refTx.type,
+        currency: refTx.currency,
+        quantity: totalQty,
+        buyPrice: Number(wacb.toFixed(4)),
+        buyDate: earliestDate,
+        exchangeRate: Number(avgExchangeRate.toFixed(4)),
+        sector: refTx.sector || "General",
+      };
+      await db.collection("holdings").insertOne(newHolding);
+    }
+  } else {
+    // In-memory fallback
+    const userMem = getUserMemDb(userId);
+    const txs = (userMem.transactions || []).filter((t) => t.symbol.toUpperCase() === upperSymbol);
+    
+    if (txs.length === 0) {
+      userMem.holdings = userMem.holdings.filter((h) => h.symbol.toUpperCase() !== upperSymbol);
+      return;
+    }
+    
+    let totalQty = 0;
+    let totalCost = 0;
+    let totalExchangeRateWeighted = 0;
+    let earliestDate = txs[0].buyDate;
+    
+    for (const tx of txs) {
+      totalQty += tx.quantity;
+      totalCost += tx.quantity * tx.buyPrice;
+      totalExchangeRateWeighted += tx.quantity * (tx.exchangeRate || 1.0);
+      if (new Date(tx.buyDate).getTime() < new Date(earliestDate).getTime()) {
+        earliestDate = tx.buyDate;
+      }
+    }
+    
+    const wacb = totalCost / totalQty;
+    const avgExchangeRate = totalExchangeRateWeighted / totalQty;
+    const refTx = txs[0];
+    
+    const idx = userMem.holdings.findIndex((h) => h.symbol.toUpperCase() === upperSymbol);
+    if (idx !== -1) {
+      userMem.holdings[idx] = {
+        ...userMem.holdings[idx],
+        quantity: totalQty,
+        buyPrice: Number(wacb.toFixed(4)),
+        exchangeRate: Number(avgExchangeRate.toFixed(4)),
+        buyDate: earliestDate,
+      };
+    } else {
+      userMem.holdings.push({
+        id: "h-" + Math.random().toString(36).substr(2, 9),
+        symbol: upperSymbol,
+        name: refTx.name,
+        type: refTx.type,
+        currency: refTx.currency,
+        quantity: totalQty,
+        buyPrice: Number(wacb.toFixed(4)),
+        buyDate: earliestDate,
+        exchangeRate: Number(avgExchangeRate.toFixed(4)),
+        sector: refTx.sector || "General",
+      });
+    }
+  }
+}
+
+export async function deleteHoldingWithTransactions(userId: string, id: string): Promise<boolean> {
+  const db = await getDbSafe();
+  const holdings = await getHoldings(userId);
+  const holding = holdings.find((h) => h.id === id);
+  if (!holding) return false;
+  
+  const upperSymbol = holding.symbol.toUpperCase();
+  
+  if (db) {
+    const res = await db.collection("holdings").deleteOne({ id, userId });
+    await db.collection("transactions").deleteMany({ userId, symbol: upperSymbol });
+    return res.deletedCount > 0;
+  } else {
+    const userMem = getUserMemDb(userId);
+    const initialLen = userMem.holdings.length;
+    userMem.holdings = userMem.holdings.filter((h) => h.id !== id);
+    userMem.transactions = (userMem.transactions || []).filter((t) => t.symbol.toUpperCase() !== upperSymbol);
+    return userMem.holdings.length < initialLen;
+  }
 }

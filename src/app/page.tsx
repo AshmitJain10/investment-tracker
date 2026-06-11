@@ -13,13 +13,15 @@ import AiInsightsPanel from "@/components/AiInsightsPanel";
 import AlertsPanel from "@/components/AlertsPanel";
 import GoldSipCard from "@/components/GoldSipCard";
 import AiBasketsPanel from "@/components/AiBasketsPanel";
+import MarketNewsPanel from "@/components/MarketNewsPanel";
+import CapitalDeployedWidget from "@/components/CapitalDeployedWidget";
 import { Holding, WatchlistItem, PriceAlert, TaxSummary, SipHealthDetails } from "@/models/types";
 import { RefreshCw, Newspaper, Sparkles, AlertCircle, Compass, BellRing, User, LogOut, ChevronDown } from "lucide-react";
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "rebalance" | "analytics" | "watchlist" | "ai" | "alerts" | "ai-baskets">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "rebalance" | "analytics" | "watchlist" | "ai" | "alerts" | "ai-baskets" | "market-news">("dashboard");
   const [isLoading, setIsLoading] = useState(true);
 
   // Core portfolio states
@@ -154,7 +156,7 @@ export default function Dashboard() {
         const params = new URLSearchParams(window.location.search);
         const tabParam = params.get("tab");
         if (tabParam) {
-          const validTabs = ["dashboard", "rebalance", "analytics", "watchlist", "ai", "alerts", "ai-baskets"];
+          const validTabs = ["dashboard", "rebalance", "analytics", "watchlist", "ai", "alerts", "ai-baskets", "market-news"];
           if (validTabs.includes(tabParam)) {
             setActiveTab(tabParam as any);
           }
@@ -676,6 +678,9 @@ export default function Dashboard() {
                   prices={prices}
                 />
 
+                {/* 2.5 Month-Wise Capital Deployed Chart */}
+                <CapitalDeployedWidget />
+
                  {/* 3. CRUD Holdings Table */}
                  <HoldingsTable
                    holdings={holdings}
@@ -694,55 +699,13 @@ export default function Dashboard() {
                    isLoading={isLoading}
                  />
 
-                 {/* 4. REAL-TIME TAILORED PORTFOLIO NEWS FEED */}
-                 <section className="glass-panel p-5 space-y-4 glow-border">
-                  <div className="flex items-center gap-2 border-b border-gray-800 pb-3">
-                    <Newspaper className="w-5 h-5 text-indigo-400 shrink-0" />
-                    <div>
-                      <h4 className="font-bold text-gray-200 text-sm uppercase tracking-wider">Tailored News feed</h4>
-                      <p className="text-[10px] text-gray-500">Real-time market updates curated for tickers in your portfolio.</p>
-                    </div>
-                  </div>
+              </div>
+            )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {newsFeed.length === 0 ? (
-                      <p className="text-xs text-gray-500 col-span-2 text-center py-4">No active news feeds detected for your current assets.</p>
-                    ) : (
-                      newsFeed.map((art) => (
-                        <div key={art.uuid} className="bg-gray-950/20 border border-gray-850 p-4 rounded-xl space-y-2 flex flex-col justify-between hover:border-gray-800 smooth-transition">
-                          <div className="space-y-1">
-                            <span className="text-[9px] uppercase tracking-wider text-indigo-400 font-extrabold block">
-                              {art.publisher} • {new Date(art.providerPublishTime).toLocaleDateString()}
-                            </span>
-                            <h5 className="font-bold text-gray-200 text-xs leading-relaxed hover:text-white smooth-transition">
-                              {art.title}
-                            </h5>
-                            <p className="text-[10px] text-gray-400 leading-relaxed truncate-3-lines mt-1">
-                              {art.summary}
-                            </p>
-                          </div>
-                          
-                          {art.relatedTickers && art.relatedTickers.length > 0 && (
-                            <div className="pt-2 flex items-center justify-between border-t border-gray-900/60 mt-3">
-                              <span className="text-[8px] bg-gray-900 px-2 py-0.5 rounded border border-gray-850 text-gray-400 font-bold uppercase">
-                                {art.relatedTickers[0]}
-                              </span>
-                              <a
-                                href={art.link}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-[9px] text-emerald-400 hover:text-emerald-300 font-bold underline"
-                              >
-                                Read Article &rarr;
-                              </a>
-                            </div>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </section>
-
+            {/* ==================== TAB 1.5: MARKET NEWS ==================== */}
+            {activeTab === "market-news" && (
+              <div className="animate-fadeIn">
+                <MarketNewsPanel newsFeed={newsFeed} />
               </div>
             )}
 
